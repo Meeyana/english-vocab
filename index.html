@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexicon - Master Your Vocabulary</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js (Biểu đồ) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .serif { font-family: 'Playfair Display', serif; }
+
+        /* Animated Background */
+        @keyframes gradient-xy {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .animate-gradient {
+            background-size: 200% 200%;
+            animation: gradient-xy 20s ease infinite;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+
+        /* Active Nav Item */
+        .nav-item.active { color: #4f46e5; background-color: #eef2ff; }
+        .nav-item.active i { font-weight: bold; }
+        .mobile-nav-item.active { color: #4f46e5; }
+        .mobile-nav-item.active i { font-weight: bold; }
+
+        /* Chips: Sử dụng !important để ghi đè Tailwind hover mặc định */
+        .filter-chip.active { 
+            background-color: #4f46e5 !important; 
+            color: white !important; 
+            border-color: #4f46e5 !important; 
+        }
+        .filter-chip.active:hover {
+            background-color: #4338ca !important; /* Darker blue on hover */
+        }
+        
+        /* Modal Animation */
+        .modal-enter { animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 via-indigo-50 to-white min-h-screen flex items-center justify-center p-0 sm:p-4 text-slate-800">
+
+    <!-- Main App Container -->
+    <div class="w-full h-dvh sm:h-[90vh] md:max-w-6xl bg-white/90 backdrop-blur-xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row relative border-0 sm:border border-white/50 ring-1 ring-slate-900/5">
+        
+        <!-- === DESKTOP SIDEBAR === -->
+        <aside class="hidden md:flex flex-col w-64 border-r border-slate-100 bg-white/80 p-6 z-20">
+            <div class="mb-10 flex items-center gap-3 text-indigo-600">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
+                    <i class="ph-bold ph-book-open text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">Lexicon</h1>
+            </div>
+
+            <nav class="space-y-2 flex-1">
+                <button onclick="navTo('lookup')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-all group active">
+                    <i class="ph-duotone ph-magnifying-glass text-xl"></i> <span class="font-medium">Dictionary</span>
+                </button>
+                <button onclick="navTo('history')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-all group">
+                    <i class="ph-duotone ph-notebook text-xl"></i> <span class="font-medium">My Words</span>
+                </button>
+                <button onclick="navTo('review')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-50 transition-all group">
+                    <i class="ph-duotone ph-graduation-cap text-xl"></i> <span class="font-medium">Practice</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- === MOBILE HEADER === -->
+        <div class="md:hidden pt-8 pb-4 px-6 text-center border-b border-slate-100 z-10 bg-white/80 backdrop-blur-md shrink-0 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <i class="ph-bold ph-book-open text-indigo-600"></i> Lexicon
+            </h1>
+            <p id="mobile-page-title" class="text-slate-500 text-xs font-medium uppercase tracking-widest">Dictionary</p>
+        </div>
+
+        <!-- === MAIN CONTENT === -->
+        <div class="flex-1 relative overflow-hidden bg-slate-50/50 flex flex-col">
+            
+            <div class="hidden md:flex px-8 py-6 items-center justify-between">
+                <h2 id="desktop-page-title" class="text-2xl font-bold text-slate-800">Dictionary Lookup</h2>
+            </div>
+
+            <div class="relative flex-1 w-full h-full overflow-hidden">
+                
+                <!-- 1. DICTIONARY PAGE -->
+                <div id="page-lookup" class="absolute inset-0 p-4 md:p-8 overflow-y-auto custom-scrollbar flex flex-col page-section">
+                    <div class="relative group w-full max-w-2xl mx-auto mb-8">
+                        <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                        <div class="relative flex items-center bg-white rounded-2xl shadow-sm border border-slate-100">
+                            <input type="text" id="wordInput" 
+                                class="w-full pl-6 pr-14 py-4 rounded-2xl bg-transparent focus:outline-none text-slate-700 text-lg placeholder-slate-400"
+                                placeholder="Type a word to learn..."
+                                autocomplete="off"
+                                onkeypress="handleKeyPress(event)">
+                            <button onclick="lookupWord()" class="absolute right-2 top-2 bottom-2 aspect-square bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center">
+                                <i class="ph-bold ph-magnifying-glass text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="w-full max-w-2xl mx-auto flex-1 flex flex-col">
+                        <div id="lookup-empty" class="flex-1 flex flex-col items-center justify-center text-center opacity-50 min-h-[300px]">
+                            <i class="ph-duotone ph-book-open-text text-8xl text-indigo-300 mb-4"></i>
+                            <p class="text-slate-500">Search for definitions, synonyms & usage.</p>
+                        </div>
+
+                        <div id="lookup-loading" class="hidden py-20 flex justify-center flex-col items-center">
+                            <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3"></div>
+                            <span id="loading-text" class="text-slate-500 text-sm font-medium">Searching...</span>
+                        </div>
+
+                        <div id="lookup-result" class="hidden pb-20 fade-in">
+                            <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 mb-6">
+                                <div class="flex justify-between items-start mb-6">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <h2 id="res-word" class="text-4xl font-bold text-slate-900 serif capitalize"></h2>
+                                            <span id="smart-badge" class="hidden px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider">Smart Def</span>
+                                        </div>
+                                        <p id="res-phonetic" class="text-slate-500 font-mono text-lg"></p>
+                                    </div>
+                                    <button id="btn-audio" class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors">
+                                        <i class="ph-fill ph-speaker-high text-xl"></i>
+                                    </button>
+                                </div>
+                                <div id="res-meanings" class="space-y-6"></div>
+                                <div id="res-synonyms-container" class="mt-6 pt-4 border-t border-slate-100 hidden">
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Synonyms</p>
+                                    <div id="res-synonyms" class="flex flex-wrap gap-2"></div>
+                                </div>
+                            </div>
+                            <button onclick="saveWord()" id="btn-save" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 active:scale-95">
+                                <i class="ph-bold ph-plus"></i> <span>Add to My Words</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. HISTORY PAGE (STATS + LIST) -->
+                <div id="page-history" class="absolute inset-0 p-4 md:p-8 overflow-y-auto custom-scrollbar hidden page-section">
+                    <div class="max-w-4xl mx-auto space-y-8">
+                        
+                        <!-- Progress Chart Section -->
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-end mb-6">
+                                <div>
+                                    <div class="flex items-center gap-3">
+                                        <h3 class="text-lg font-bold text-slate-900">Learning Progress</h3>
+                                        <button onclick="loadHistory(true)" class="p-1.5 rounded-full hover:bg-slate-50 text-indigo-600 transition-colors" title="Refresh">
+                                            <i class="ph-bold ph-arrows-clockwise"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-sm text-slate-500">Track your memory retention levels.</p>
+                                </div>
+                                <div class="text-right">
+                                    <span id="total-words-display" class="text-3xl font-bold text-indigo-600 block">0</span>
+                                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Words</span>
+                                </div>
+                            </div>
+                            <div class="h-48 w-full">
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="flex flex-col sm:flex-row gap-4 justify-between items-center">
+                            <div class="relative w-full sm:w-64">
+                                <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" oninput="handleHistorySearch(this.value)" placeholder="Find a word..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <!-- FILTER CHIPS -->
+                            <div class="flex gap-2 overflow-x-auto pb-1 max-w-full custom-scrollbar">
+                                <button onclick="setHistoryFilter('all')" id="filter-all" class="filter-chip active px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">All</button>
+                                <button onclick="setHistoryFilter(1)" id="filter-1" class="filter-chip px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">New (1)</button>
+                                <button onclick="setHistoryFilter(2)" id="filter-2" class="filter-chip px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">2</button>
+                                <button onclick="setHistoryFilter(3)" id="filter-3" class="filter-chip px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">3</button>
+                                <button onclick="setHistoryFilter(4)" id="filter-4" class="filter-chip px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">4</button>
+                                <button onclick="setHistoryFilter(5)" id="filter-5" class="filter-chip px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 whitespace-nowrap">Mastered (5)</button>
+                            </div>
+                        </div>
+
+                        <!-- Grid List -->
+                        <div id="history-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"></div>
+                    </div>
+                </div>
+
+                <!-- 3. PRACTICE PAGE -->
+                <div id="page-review" class="absolute inset-0 p-4 md:p-8 overflow-y-auto custom-scrollbar hidden page-section flex flex-col">
+                    
+                    <!-- Intro -->
+                    <div id="review-intro" class="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                        <div class="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6 text-indigo-600">
+                            <i class="ph-duotone ph-brain text-5xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-slate-900 mb-2">Knowledge Check</h2>
+                        <p class="text-slate-500 mb-8 leading-relaxed">
+                            We'll generate a personalized quiz based on words you haven't reviewed in the last 12 hours.
+                        </p>
+                        <button onclick="startReviewSession()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-play"></i> Start Session
+                        </button>
+                    </div>
+
+                    <!-- LOADING SCREEN (Separated) -->
+                    <div id="review-loading" class="hidden absolute inset-0 z-40 bg-white flex flex-col items-center justify-center">
+                        <div class="relative w-20 h-20 mb-6">
+                            <div class="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+                            <div class="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+                            <i class="ph-duotone ph-magic-wand text-2xl text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Designing your Quiz...</h3>
+                        <p class="text-slate-500 text-sm max-w-xs text-center">Creating reading materials and questions tailored to your level.</p>
+                    </div>
+
+                    <!-- Quiz Interface -->
+                    <div id="review-interface" class="hidden absolute inset-0 bg-white z-30 flex flex-col">
+                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                            <h3 class="font-bold text-lg flex items-center gap-2"><i class="ph-fill ph-lightning text-amber-500"></i> Practice Mode</h3>
+                            <!-- Cancel/Back Button -->
+                            <button onclick="confirmExitReview()" class="p-2 bg-slate-50 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"><i class="ph-bold ph-x"></i></button>
+                        </div>
+                        <div id="quiz-content" class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50/50 space-y-8"></div>
+                        <div class="p-4 bg-white border-t border-slate-100 flex justify-end" id="quiz-footer-actions">
+                            <button id="btn-submit-quiz" onclick="submitReview()" class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
+                                <i class="ph-bold ph-check"></i> Submit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- MOBILE NAV -->
+        <div class="md:hidden bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-20 relative shrink-0 pb-safe">
+            <button onclick="navTo('lookup')" class="mobile-nav-item active flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 w-1/3">
+                <i class="ph-duotone ph-magnifying-glass text-2xl"></i> <span class="text-[10px] font-bold uppercase">Search</span>
+            </button>
+            <button onclick="navTo('history')" class="mobile-nav-item flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 w-1/3">
+                <i class="ph-duotone ph-notebook text-2xl"></i> <span class="text-[10px] font-bold uppercase">Words</span>
+            </button>
+            <button onclick="navTo('review')" class="mobile-nav-item flex flex-col items-center gap-1 text-slate-400 hover:text-indigo-600 w-1/3">
+                <i class="ph-duotone ph-graduation-cap text-2xl"></i> <span class="text-[10px] font-bold uppercase">Practice</span>
+            </button>
+        </div>
+
+        <!-- SUCCESS MODAL -->
+        <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-sm w-full text-center transform scale-95 transition-all" id="modal-content">
+                <div class="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="ph-fill ph-trophy text-4xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">Great Job!</h3>
+                <p id="modal-msg" class="text-slate-500 mb-6">You got 3/5 correct. Keep it up!</p>
+                <button onclick="reviewAnswers()" class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 shadow-lg active:scale-95 transition-all">Review Answers</button>
+            </div>
+        </div>
+
+        <!-- TOAST -->
+        <div id="toast" class="hidden fixed top-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 text-sm font-medium">
+            <i class="ph-fill ph-check-circle text-green-400 text-lg"></i> <span id="toast-msg">Success</span>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // --- CONFIG ---
+        const SUPABASE_URL = 'https://ylgbmdoxbjeappjcaukl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ2JtZG94YmplYXBwamNhdWtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzY0NTQsImV4cCI6MjA4MDU1MjQ1NH0.szi5-9ZKTmCWLNyd2w6VDQDp885kBDTLchoCD4qtNMY';
+        const N8N_WEBHOOK_URL = 'https://n8n.n8ntuanphangz.xyz/webhook/english-vocab';
+        const N8N_QUIZ_WEBHOOK_URL = 'https://n8n.n8ntuanphangz.xyz/webhook/eng-quiz';
+
+        let db = typeof supabase !== 'undefined' ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        
+        // --- STATE ---
+        const API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/";
+        const CACHE_KEY = 'lexicon_cache';
+        let currentWordData = null;
+        let historyData = [];
+        let currentSearch = '';
+        let currentFilterRating = 'all';
+        let currentReviewWords = [];
+        let statsChart = null; 
+
+        // --- NAVIGATION ---
+        function navTo(pageId) {
+            const mapping = { 'lookup': 0, 'history': 1, 'review': 2 };
+            const idx = mapping[pageId];
+
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active', 'bg-indigo-50', 'text-indigo-600'));
+            if(document.querySelectorAll('.nav-item')[idx]) document.querySelectorAll('.nav-item')[idx].classList.add('active', 'bg-indigo-50', 'text-indigo-600');
+
+            document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active', 'text-indigo-600'));
+            if(document.querySelectorAll('.mobile-nav-item')[idx]) document.querySelectorAll('.mobile-nav-item')[idx].classList.add('active', 'text-indigo-600');
+
+            document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+
+            const titles = {'lookup':'Dictionary', 'history':'My Collection', 'review':'Practice'};
+            document.getElementById('mobile-page-title').innerText = titles[pageId];
+            if(pageId === 'history') loadHistory();
+        }
+
+        // --- DICTIONARY LOGIC ---
+        function handleKeyPress(e) { if (e.key === "Enter") lookupWord(); }
+        async function lookupWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            if(!word) return;
+            
+            document.getElementById('lookup-empty').classList.add('hidden');
+            document.getElementById('lookup-result').classList.add('hidden');
+            document.getElementById('lookup-loading').classList.remove('hidden');
+            document.getElementById('loading-text').innerText = "Searching...";
+            document.getElementById('smart-badge').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_URL}${word}`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                renderLookup(data[0], false);
+            } catch (e) {
+                document.getElementById('loading-text').innerText = "Analyzing word...";
+                await lookupWithAI(word);
+            }
+        }
+
+        async function lookupWithAI(word) {
+            try {
+                const res = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'define', word })
+                });
+                if(!res.ok) throw new Error();
+                const aiData = await res.json();
+                const entry = {
+                    word: aiData.word || word,
+                    phonetic: aiData.phonetic || '',
+                    meanings: [{
+                        partOfSpeech: aiData.partOfSpeech || 'general',
+                        definitions: [{ definition: aiData.meaning, example: Array.isArray(aiData.examples) ? aiData.examples.join('\n') : aiData.example }],
+                        synonyms: aiData.synonyms || []
+                    }]
+                };
+                renderLookup(entry, true);
+            } catch (err) {
+                showToast("Word not found.", true);
+                document.getElementById('lookup-loading').classList.add('hidden');
+                document.getElementById('lookup-empty').classList.remove('hidden');
+            }
+        }
+
+        function renderLookup(entry, isSmart = false) {
+            document.getElementById('lookup-loading').classList.add('hidden');
+            document.getElementById('lookup-result').classList.remove('hidden');
+            if(isSmart) document.getElementById('smart-badge').classList.remove('hidden');
+
+            const def = entry.meanings[0]?.definitions[0];
+            const phonetic = entry.phonetic || entry.phonetics?.find(p=>p.text)?.text || "";
+            const audio = entry.phonetics?.find(p=>p.audio)?.audio;
+            const syns = [...new Set(entry.meanings.flatMap(m => m.synonyms || []))].slice(0, 5);
+            
+            currentWordData = {
+                word: entry.word, phonetic: phonetic, meaning: def?.definition || "",
+                example: def?.example || "", synonyms: syns.join(", "), rating: 1
+            };
+
+            document.getElementById('res-word').innerText = entry.word;
+            document.getElementById('res-phonetic').innerText = phonetic;
+            const btnAudio = document.getElementById('btn-audio');
+            btnAudio.style.display = audio ? 'flex' : 'none';
+            btnAudio.onclick = () => new Audio(audio).play();
+
+            const meaningsHtml = entry.meanings.slice(0, 2).map(m => {
+                 const exs = m.definitions[0].example ? m.definitions[0].example.split('\n').map(e => `<p class="mb-1 text-slate-500 italic">"${e}"</p>`).join('') : '';
+                 return `<div class="mb-4"><span class="text-xs font-bold bg-slate-100 px-2 py-1 rounded uppercase text-slate-600">${m.partOfSpeech}</span><p class="mt-1 text-slate-800 font-medium">${m.definitions[0].definition}</p><div class="mt-2 pl-3 border-l-2 border-indigo-100 text-sm">${exs}</div></div>`
+            }).join('');
+            document.getElementById('res-meanings').innerHTML = meaningsHtml;
+
+            const synContainer = document.getElementById('res-synonyms-container');
+            if (syns.length > 0) {
+                synContainer.classList.remove('hidden');
+                document.getElementById('res-synonyms').innerHTML = syns.map(s => `<span class="px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs text-slate-600">${s}</span>`).join('');
+            } else synContainer.classList.add('hidden');
+
+            const btnSave = document.getElementById('btn-save');
+            btnSave.classList.remove('bg-green-600', 'pointer-events-none');
+            btnSave.classList.add('bg-slate-900');
+            btnSave.innerHTML = `<i class="ph-bold ph-plus"></i> <span>Add to My Words</span>`;
+        }
+
+        async function saveWord() {
+            if(!db || !currentWordData) return;
+            const btn = document.getElementById('btn-save');
+            btn.innerHTML = `<i class="ph ph-spinner animate-spin"></i> Saving...`;
+            try {
+                const {data: ex} = await db.from('vocabulary').select('id').eq('word', currentWordData.word);
+                if(ex.length) throw new Error("Already Saved");
+                const {data} = await db.from('vocabulary').insert([currentWordData]).select();
+                const cached = localStorage.getItem(CACHE_KEY);
+                let list = cached ? JSON.parse(cached) : [];
+                list.unshift(data[0]);
+                localStorage.setItem(CACHE_KEY, JSON.stringify(list));
+                showToast("Added to collection!");
+                btn.classList.replace('bg-slate-900', 'bg-green-600');
+                btn.classList.add('pointer-events-none');
+                btn.innerHTML = `<i class="ph-bold ph-check"></i> Added`;
+            } catch(e) {
+                showToast("Already in collection", true);
+                btn.innerHTML = `<i class="ph-bold ph-check"></i> Saved`;
+            }
+        }
+
+        // --- HISTORY & CHARTS ---
+        async function loadHistory(forceRefresh = false) {
+            if(!db) return;
+            const list = document.getElementById('history-list');
+            const cached = localStorage.getItem(CACHE_KEY);
+            if(cached && !forceRefresh) {
+                historyData = JSON.parse(cached);
+                applyHistoryFilters();
+                renderChart(historyData);
+            } else if (!forceRefresh) {
+                list.innerHTML = `<div class="col-span-full text-center py-10"><i class="ph-duotone ph-spinner animate-spin text-2xl text-indigo-500"></i></div>`;
+            } else {
+                list.innerHTML = `<div class="col-span-full text-center py-10"><i class="ph-duotone ph-spinner animate-spin text-2xl text-indigo-500"></i><p class="text-sm text-slate-400 mt-2">Syncing...</p></div>`;
+            }
+
+            try {
+                const {data, error} = await db.from('vocabulary').select('*').order('created_at', {ascending: false}).limit(200);
+                if(error) throw error;
+                if(data) {
+                    historyData = data;
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                    applyHistoryFilters();
+                    renderChart(data);
+                    if(forceRefresh) showToast("Synced successfully!");
+                }
+            } catch(e) {
+                if(forceRefresh || !historyData.length) list.innerHTML = `<div class="col-span-full text-center text-red-400 py-4">Failed to load history</div>`;
+            }
+        }
+
+        function setHistoryFilter(rating) {
+            currentFilterRating = rating;
+            document.querySelectorAll('.filter-chip').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`filter-${rating}`);
+            if(activeBtn) activeBtn.classList.add('active');
+            applyHistoryFilters();
+        }
+
+        function handleHistorySearch(val) {
+            currentSearch = val.toLowerCase();
+            applyHistoryFilters();
+        }
+
+        function applyHistoryFilters() {
+            const filtered = historyData.filter(item => {
+                const matchesSearch = item.word.toLowerCase().includes(currentSearch);
+                const matchesRating = currentFilterRating === 'all' || item.rating === currentFilterRating;
+                return matchesSearch && matchesRating;
+            });
+            renderHistory(filtered);
+        }
+
+        function renderChart(data) {
+            document.getElementById('total-words-display').innerText = data.length;
+            const counts = [0,0,0,0,0];
+            data.forEach(w => { let r = w.rating || 1; if(r >=1 && r <=5) counts[r-1]++; });
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            if(statsChart) statsChart.destroy();
+            statsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['New', 'Learning', 'Familiar', 'Good', 'Mastered'],
+                    datasets: [{
+                        label: 'Words', data: counts,
+                        backgroundColor: ['#f87171', '#fb923c', '#facc15', '#a3e635', '#4ade80'],
+                        borderRadius: 6, barThickness: 20
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false} }, scales: { y: { beginAtZero: true, grid: {display: false} }, x: { grid: {display: false} } } }
+            });
+        }
+
+        function renderHistory(data) {
+            const list = document.getElementById('history-list');
+            if(!data || data.length === 0) { list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400">No words found.</div>`; return; }
+            list.innerHTML = data.map(w => {
+                let stars = '';
+                for(let i=1; i<=5; i++) stars += `<i class="${i<=w.rating ? 'ph-fill text-yellow-400' : 'ph-duotone text-slate-200'} ph-star text-xs"></i>`;
+                return `<div class="p-4 rounded-2xl border ${w.rating>=4 ? 'border-green-100 bg-green-50/30' : 'border-slate-100 bg-white'} hover:shadow-md transition-all"><div class="flex justify-between mb-2"><h3 class="font-bold text-slate-800 capitalize">${w.word}</h3><div class="flex gap-0.5">${stars}</div></div><p class="text-xs text-indigo-500 font-mono mb-2">${w.phonetic||''}</p><p class="text-sm text-slate-600 line-clamp-2">${w.meaning}</p></div>`;
+            }).join('');
+        }
+
+        // --- PRACTICE / QUIZ LOGIC (UPDATED) ---
+        async function startReviewSession() {
+            if(!db) return;
+            document.getElementById('review-intro').classList.add('hidden');
+            document.getElementById('review-loading').classList.remove('hidden');
+
+            try {
+                // Fetch words with cooldown logic
+                const { data: words } = await db.from('vocabulary').select('*').lt('rating', 5).limit(100);
+                const eligibleWords = words.filter(w => {
+                    if (!w.last_reviewed) return true;
+                    return new Date(w.last_reviewed) < new Date(Date.now() - 12 * 60 * 60 * 1000);
+                });
+
+                if(eligibleWords.length < 3) {
+                    alert("No words available for review right now (12h cooldown). Come back later!");
+                    closeReview();
+                    return;
+                }
+
+                const pool = [];
+                eligibleWords.forEach(w => {
+                    const weight = 6 - (w.rating || 1);
+                    for(let i=0; i<weight; i++) pool.push(w);
+                });
+
+                const selection = [];
+                const seen = new Set();
+                while(selection.length < 10 && pool.length > 0) {
+                    const candidate = pool[Math.floor(Math.random()*pool.length)];
+                    if(!seen.has(candidate.id)) {
+                        selection.push(candidate);
+                        seen.add(candidate.id);
+                    }
+                    pool.splice(pool.indexOf(candidate), 1);
+                }
+
+                currentReviewWords = selection;
+                
+                const res = await fetch(N8N_QUIZ_WEBHOOK_URL, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'generate_quiz', words: selection.map(w=>w.word) })
+                });
+                
+                if(!res.ok) throw new Error("Quiz Gen Failed");
+                const quizData = await res.json();
+                renderQuiz(quizData);
+
+            } catch (e) {
+                console.error(e);
+                alert("Could not generate quiz. Try again.");
+                closeReview();
+            }
+        }
+
+        // Helper function to parse bold markdown
+        function parseMarkdown(text) {
+            if (!text) return '';
+            // Convert **bold** to <strong>bold</strong>
+            let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">$1</strong>');
+            // Convert newlines to <br>
+            return formatted.replace(/\n/g, '<br>');
+        }
+
+        function renderQuiz(data) {
+            document.getElementById('review-loading').classList.add('hidden');
+            document.getElementById('review-interface').classList.remove('hidden');
+            // Reset Footer
+            document.getElementById('quiz-footer-actions').innerHTML = `
+                <button id="btn-submit-quiz" onclick="submitReview()" class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
+                    <i class="ph-bold ph-check"></i> Submit
+                </button>`;
+                
+            const container = document.getElementById('quiz-content');
+            container.innerHTML = '';
+
+            if(data.reading) {
+                // Áp dụng hàm parseMarkdown cho nội dung bài đọc
+                const contentHtml = parseMarkdown(data.reading.content);
+                
+                container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">PART 1</span>
+                    <h3 class="font-bold text-lg mt-2 mb-3">${data.reading.title}</h3>
+                    <div class="prose prose-slate text-sm mb-6 leading-relaxed text-justify">${contentHtml}</div>
+                    <div class="space-y-4">
+                        ${data.reading.questions.map((q,i) => `
+                        <div class="quiz-item p-4 rounded-xl border border-transparent transition-all" data-answer="${q.answer}" data-type="reading" id="q-read-${i}">
+                            <p class="font-bold text-sm mb-2 text-slate-700">${i+1}. ${q.question}</p>
+                            <div class="space-y-2">
+                                ${q.options.map(opt => `
+                                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-slate-50 border border-transparent has-[:checked]:border-indigo-200 has-[:checked]:bg-indigo-50">
+                                        <input type="radio" name="r${i}" value="${opt}" class="text-indigo-600 focus:ring-indigo-500" onchange="clearError('q-read-${i}')"> 
+                                        <span class="text-sm text-slate-600">${opt}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                            <div class="error-msg hidden mt-2 text-xs font-bold text-red-500 flex items-center gap-1"><i class="ph-bold ph-warning-circle"></i> Please select an answer</div>
+                            <div class="feedback hidden mt-2 text-xs font-bold"></div>
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            }
+
+            if(data.fill_in_blanks) {
+                container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded">PART 2</span>
+                    <h3 class="font-bold text-lg mt-2 mb-4">Vocabulary Check</h3>
+                    <div class="space-y-6">
+                        ${data.fill_in_blanks.map((q,i) => `
+                        <div class="quiz-item p-4 rounded-xl border border-transparent transition-all" data-answer="${q.answer}" data-target="${q.target_word}" data-type="vocab" id="q-vocab-${i}">
+                            <p class="text-slate-800 mb-2 font-medium">${i+1}. ${q.sentence.replace('_____', '<span class="border-b-2 border-slate-300 w-12 inline-block"></span>')}</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${q.options.map(opt => `
+                                    <label class="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 transition-all">
+                                        <input type="radio" name="f${i}" value="${opt}" class="text-indigo-600 focus:ring-indigo-500" onchange="clearError('q-vocab-${i}')"> 
+                                        <span class="text-sm font-medium">${opt}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                            <div class="error-msg hidden mt-2 text-xs font-bold text-red-500 flex items-center gap-1"><i class="ph-bold ph-warning-circle"></i> Please select an answer</div>
+                            <div class="feedback hidden mt-2 text-xs font-bold"></div>
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            }
+        }
+
+        // Helper to clear red error border when user selects an option
+        function clearError(elementId) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('bg-red-50', 'border-red-200');
+            el.classList.add('border-transparent');
+            el.querySelector('.error-msg').classList.add('hidden');
+        }
+
+        async function submitReview() {
+            let correct = 0, total = 0;
+            const wordsToUpdate = new Set(); 
+            let hasUnanswered = false;
+            let firstUnansweredEl = null;
+
+            // 1. VALIDATION PHASE
+            document.querySelectorAll('.quiz-item').forEach(el => {
+                const sel = el.querySelector('input:checked');
+                const errorMsg = el.querySelector('.error-msg');
+                
+                if (!sel) {
+                    hasUnanswered = true;
+                    // Visual feedback for error
+                    el.classList.remove('border-transparent');
+                    el.classList.add('bg-red-50', 'border', 'border-red-200');
+                    errorMsg.classList.remove('hidden');
+                    
+                    if (!firstUnansweredEl) firstUnansweredEl = el;
+                }
+            });
+
+            if (hasUnanswered) {
+                // Scroll to first error
+                firstUnansweredEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast("Please answer all questions!", true);
+                return; // STOP EXECUTION
+            }
+
+            // 2. GRADING PHASE
+            document.querySelectorAll('.quiz-item').forEach(el => {
+                total++;
+                const ans = el.dataset.answer;
+                const sel = el.querySelector('input:checked')?.value;
+                const fb = el.querySelector('.feedback');
+                fb.classList.remove('hidden');
+
+                // Disable inputs
+                el.querySelectorAll('input').forEach(inp => inp.disabled = true);
+
+                if(sel === ans) {
+                    correct++;
+                    fb.innerText = "Correct ✅";
+                    fb.className = "feedback mt-2 text-green-600 text-xs font-bold bg-green-100 px-2 py-1 rounded inline-block";
+                    el.classList.add('bg-green-50/50');
+                    if(el.dataset.type === 'vocab') {
+                        const target = el.dataset.target.toLowerCase();
+                        const wObj = currentReviewWords.find(w => w.word.toLowerCase() === target);
+                        if(wObj) wordsToUpdate.add(wObj);
+                    }
+                } else {
+                    fb.innerHTML = `Incorrect. The correct answer is <span class="text-indigo-600">${ans}</span>`;
+                    fb.className = "feedback mt-2 text-red-500 text-xs font-bold bg-red-100 px-2 py-1 rounded inline-block";
+                    el.classList.add('bg-red-50/50');
+                }
+            });
+
+            if(wordsToUpdate.size > 0 && db) {
+                const now = new Date().toISOString();
+                const promises = Array.from(wordsToUpdate).map(w => {
+                    const newR = Math.min(5, (w.rating||1) + 1);
+                    return db.from('vocabulary').update({rating: newR, last_reviewed: now}).eq('id', w.id);
+                });
+                await Promise.all(promises);
+            }
+
+            showResultModal(correct, total);
+            
+            // Change Button to "Finish"
+            const footerDiv = document.getElementById('quiz-footer-actions');
+            footerDiv.innerHTML = `
+                <button onclick="finishReviewSession()" class="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2">
+                    <i class="ph-bold ph-arrow-left"></i> Back to Start
+                </button>`;
+        }
+
+        function showResultModal(correct, total) {
+            const modal = document.getElementById('result-modal');
+            const msg = document.getElementById('modal-msg');
+            modal.classList.remove('hidden');
+            document.getElementById('modal-content').classList.add('modal-enter');
+            const percent = Math.round((correct/total)*100);
+            msg.innerText = `You scored ${percent}% (${correct}/${total}).`;
+        }
+
+        // --- NEW FUNCTIONS FOR POST-QUIZ FLOW ---
+        function reviewAnswers() {
+            // Close modal but stay on quiz interface (which now shows feedback)
+            document.getElementById('result-modal').classList.add('hidden');
+        }
+
+        function finishReviewSession() {
+            // Reset and go back to Intro
+            document.getElementById('review-interface').classList.add('hidden');
+            document.getElementById('review-intro').classList.remove('hidden');
+            document.getElementById('review-loading').classList.add('hidden');
+            
+            // Refresh history to reflect rating changes
+            loadHistory(true);
+        }
+
+        function closeModal() { document.getElementById('result-modal').classList.add('hidden'); }
+        function confirmExitReview() {
+            if(confirm("Exit practice session?")) {
+                finishReviewSession();
+            }
+        }
+        function closeReview() { finishReviewSession(); }
+
+        function showToast(msg, isErr=false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.querySelector('i').className = isErr ? "ph-fill ph-warning-circle text-red-500 text-lg" : "ph-fill ph-check-circle text-green-400 text-lg";
+            t.classList.remove('hidden');
+            setTimeout(()=>t.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>
