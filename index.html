@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learning English - Master Your Vocabulary</title>
+    <title>Lexicon - Master Your Vocabulary</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Phosphor Icons -->
@@ -53,6 +53,12 @@
         /* Modal Animation */
         .modal-enter { animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* Safari Spin Fix */
+        .spin-safe {
+            will-change: transform;
+            transform: translateZ(0);
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-100 via-indigo-50 to-white min-h-screen flex items-center justify-center p-0 sm:p-4 text-slate-800">
@@ -66,7 +72,7 @@
                 <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
                     <i class="ph-bold ph-book-open text-xl"></i>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight text-slate-900">Learning English</h1>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">Lexicon</h1>
             </div>
 
             <nav class="space-y-2 flex-1">
@@ -85,7 +91,7 @@
         <!-- === MOBILE HEADER === -->
         <div class="md:hidden pt-8 pb-4 px-6 text-center border-b border-slate-100 z-10 bg-white/80 backdrop-blur-md shrink-0 flex justify-between items-center">
             <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <i class="ph-bold ph-book-open text-indigo-600"></i> Learning English
+                <i class="ph-bold ph-book-open text-indigo-600"></i> Lexicon
             </h1>
             <p id="mobile-page-title" class="text-slate-500 text-xs font-medium uppercase tracking-widest">Dictionary</p>
         </div>
@@ -218,12 +224,11 @@
                         </button>
                     </div>
 
-                    <!-- LOADING SCREEN (Separated) -->
+                    <!-- LOADING SCREEN (Safari Fixed) -->
                     <div id="review-loading" class="hidden absolute inset-0 z-40 bg-white flex flex-col items-center justify-center">
-                        <div class="relative w-20 h-20 mb-6">
-                            <div class="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
-                            <div class="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
-                            <i class="ph-duotone ph-magic-wand text-2xl text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
+                        <div class="relative w-20 h-20 mb-6 flex items-center justify-center">
+                            <!-- Safari Safe Spinner -->
+                            <i class="ph-bold ph-spinner animate-spin text-5xl text-indigo-600 spin-safe"></i>
                         </div>
                         <h3 class="text-xl font-bold text-slate-800 mb-2">Designing your Quiz...</h3>
                         <p class="text-slate-500 text-sm max-w-xs text-center">Creating reading materials and questions tailored to your level.</p>
@@ -293,6 +298,7 @@
         // --- STATE ---
         const API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/";
         const CACHE_KEY = 'lexicon_cache';
+        const QUIZ_CACHE_KEY = 'lexicon_quiz_active';
         let currentWordData = null;
         let historyData = [];
         let currentSearch = '';
@@ -510,11 +516,24 @@
             }).join('');
         }
 
-        // --- PRACTICE / QUIZ LOGIC (UPDATED) ---
+        // --- PRACTICE / QUIZ LOGIC (UPDATED WITH CACHE) ---
         async function startReviewSession() {
             if(!db) return;
             document.getElementById('review-intro').classList.add('hidden');
             document.getElementById('review-loading').classList.remove('hidden');
+
+            // 1. Check Local Cache first
+            const cachedQuiz = localStorage.getItem(QUIZ_CACHE_KEY);
+            if (cachedQuiz) {
+                try {
+                    const parsed = JSON.parse(cachedQuiz);
+                    currentReviewWords = parsed.words;
+                    renderQuiz(parsed.data);
+                    return; // Loaded from cache, skip API calls
+                } catch(e) {
+                    localStorage.removeItem(QUIZ_CACHE_KEY); // Corrupt cache
+                }
+            }
 
             try {
                 // Fetch words with cooldown logic
@@ -556,6 +575,14 @@
                 
                 if(!res.ok) throw new Error("Quiz Gen Failed");
                 const quizData = await res.json();
+                
+                // SAVE TO CACHE
+                localStorage.setItem(QUIZ_CACHE_KEY, JSON.stringify({
+                    data: quizData,
+                    words: currentReviewWords,
+                    timestamp: Date.now()
+                }));
+
                 renderQuiz(quizData);
 
             } catch (e) {
@@ -739,6 +766,9 @@
         }
 
         function finishReviewSession() {
+            // Clear cache only when explicitly finishing the session
+            localStorage.removeItem(QUIZ_CACHE_KEY);
+
             // Reset and go back to Intro
             document.getElementById('review-interface').classList.add('hidden');
             document.getElementById('review-intro').classList.remove('hidden');
